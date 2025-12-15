@@ -1,0 +1,53 @@
+<policies>
+    <inbound>
+        <base />
+        <!-- Rate Limiting: 100 requests per minute per subscription -->
+        <rate-limit-by-key calls="100" renewal-period="60" counter-key="@(context.Subscription.Id)" />
+        
+        <!-- Token Quota: 50,000 tokens per day -->
+        <quota-by-key calls="50000" renewal-period="86400" counter-key="@(context.Subscription.Id)" />
+        
+        <!-- Model Allowlist: Only allow specific models -->
+        <choose>
+            <when condition="@(context.Request.Body.As<JObject>(preserveContent: true)?.ContainsKey("model") == true)">
+                <set-variable name="requestedModel" value="@(context.Request.Body.As<JObject>(preserveContent: true)["model"].ToString())" />
+                <choose>
+                    <when condition="@{
+                        var allowedModels = new[] { "gpt-4o-mini", "gpt-4o", "text-embedding-3-large" };
+                        var model = (string)context.Variables["requestedModel"];
+                        return !allowedModels.Contains(model);
+                    }">
+                        <return-response>
+                            <set-status code="403" reason="Forbidden" />
+                            <set-header name="Content-Type" exists-action="override">
+                                <value>application/json</value>
+                            </set-header>
+                            <set-body>@{
+                                return new JObject(
+                                    new JProperty("error", new JObject(
+                                        new JProperty("code", "ModelNotAllowed"),
+                                        new JProperty("message", $"Model '{context.Variables["requestedModel"]}' is not allowed for this subscription. Allowed models: gpt-4o-mini, gpt-4o, text-embedding-3-large")
+                                    ))
+                                ).ToString();
+                            }</set-body>
+                        </return-response>
+                    </when>
+                </choose>
+            </when>
+        </choose>
+        
+        <!-- Usage Tracking Metadata -->
+        <set-variable name="useCaseBusinessUnit" value="Support" />
+        <set-variable name="useCaseName" value="CustomerAgent" />
+        <set-variable name="useCaseEnvironment" value="DEV" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
