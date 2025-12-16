@@ -1,0 +1,212 @@
+# Deploy Citadel Access Contracts
+# 
+# This workflow deploys access contracts when changes are merged to citadel-v1.
+# PRs and other branches are validated only, not deployed.
+# It only deploys contracts that have changed, not all contracts.
+
+name: Deploy Access Contracts
+
+on:
+  push:
+    branches: [citadel-v1]
+    paths:
+      - 'bicep/infra/citadel-access-contracts/contracts/**'
+  pull_request:
+    paths:
+      - 'bicep/infra/citadel-access-contracts/contracts/**'
+  workflow_dispatch:
+    inputs:
+      contract_folder:
+        description: 'Specific contract folder to deploy (leave empty for all changed)'
+        required: false
+        type: string
+
+env:
+  AZURE_LOCATION: 'swedencentral'
+  CONTRACTS_PATH: 'bicep/infra/citadel-access-contracts/contracts'
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Detect Changed Contracts
+  # ---------------------------------------------------------------------------
+  detect-changes:
+    name: Detect Changed Contracts
+    runs-on: ubuntu-latest
+    outputs:
+      contracts: ${{ steps.changes.outputs.contracts }}
+      has_changes: ${{ steps.changes.outputs.has_changes }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Detect changed contracts
+        id: changes
+        run: |
+          if [ -n "${{ github.event.inputs.contract_folder }}" ]; then
+            # Manual trigger with specific folder
+            CONTRACTS='["${{ github.event.inputs.contract_folder }}"]'
+          else
+            # Detect changes from git diff
+            if [ "${{ github.event_name }}" == "pull_request" ]; then
+              BASE_SHA=${{ github.event.pull_request.base.sha }}
+            else
+              BASE_SHA=${{ github.event.before }}
+            fi
+            
+            # Get changed contract folders (excluding _template)
+            CHANGED=$(git diff --name-only $BASE_SHA ${{ github.sha }} -- "${{ env.CONTRACTS_PATH }}/" | \
+              grep -E "^${{ env.CONTRACTS_PATH }}/[^/]+/" | \
+              sed "s|${{ env.CONTRACTS_PATH }}/||" | \
+              cut -d'/' -f1 | \
+              grep -v "^_template$" | \
+              grep -v "^README" | \
+              sort -u | \
+              jq -R -s -c 'split("\n") | map(select(length > 0))')
+            
+            CONTRACTS="${CHANGED:-[]}"
+          fi
+          
+          echo "contracts=$CONTRACTS" >> $GITHUB_OUTPUT
+          
+          if [ "$CONTRACTS" == "[]" ]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No contract changes detected"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changed contracts: $CONTRACTS"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Validate Contracts (PR only)
+  # ---------------------------------------------------------------------------
+  validate:
+    name: Validate Contracts
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    strategy:
+      matrix:
+        contract: ${{ fromJson(needs.detect-changes.outputs.contracts) }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      
+      - name: Validate ${{ matrix.contract }}
+        run: |
+          CONTRACT_PATH="${{ env.CONTRACTS_PATH }}/${{ matrix.contract }}/usecase.bicepparam"
+          
+          if [ ! -f "$CONTRACT_PATH" ]; then
+            echo "❌ Contract file not found: $CONTRACT_PATH"
+            exit 1
+          fi
+          
+          echo "Validating ${{ matrix.contract }}..."
+          az deployment sub validate \
+            --location ${{ env.AZURE_LOCATION }} \
+            --template-file bicep/infra/citadel-access-contracts/main.bicep \
+            --parameters "$CONTRACT_PATH" \
+            --output table
+          
+          echo "✅ ${{ matrix.contract }} is valid"
+      
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Contract `${{ matrix.contract }}` validated successfully!'
+            })
+
+  # ---------------------------------------------------------------------------
+  # Deploy Contracts (main only)
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy Contracts
+    runs-on: ubuntu-latest
+    needs: [detect-changes, validate]
+    if: |
+      github.event_name != 'pull_request' && 
+      needs.detect-changes.outputs.has_changes == 'true'
+    environment: production
+    strategy:
+      matrix:
+        contract: ${{ fromJson(needs.detect-changes.outputs.contracts) }}
+      max-parallel: 1  # Deploy one at a time to avoid conflicts
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      
+      - name: Deploy ${{ matrix.contract }}
+        run: |
+          CONTRACT_PATH="${{ env.CONTRACTS_PATH }}/${{ matrix.contract }}/usecase.bicepparam"
+          DEPLOYMENT_NAME="contract-${{ matrix.contract }}-$(date +%Y%m%d-%H%M%S)"
+          
+          echo "🚀 Deploying ${{ matrix.contract }}..."
+          
+          az deployment sub create \
+            --name "$DEPLOYMENT_NAME" \
+            --location ${{ env.AZURE_LOCATION }} \
+            --template-file bicep/infra/citadel-access-contracts/main.bicep \
+            --parameters "$CONTRACT_PATH" \
+            --output table
+          
+          echo "✅ ${{ matrix.contract }} deployed successfully"
+      
+      - name: Summary
+        run: |
+          echo "### Contract Deployed: ${{ matrix.contract }} :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The following was created/updated:" >> $GITHUB_STEP_SUMMARY
+          echo "- APIM Product" >> $GITHUB_STEP_SUMMARY
+          echo "- APIM Subscription" >> $GITHUB_STEP_SUMMARY
+          echo "- Key Vault Secrets (if configured)" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # Summary
+  # ---------------------------------------------------------------------------
+  summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy]
+    if: always() && github.event_name != 'pull_request'
+    
+    steps:
+      - name: Summary
+        run: |
+          echo "### Access Contract Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Contract | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          CONTRACTS='${{ needs.detect-changes.outputs.contracts }}'
+          for contract in $(echo $CONTRACTS | jq -r '.[]'); do
+            echo "| $contract | ✅ Deployed |" >> $GITHUB_STEP_SUMMARY
+          done
