@@ -141,14 +141,43 @@ Once validation passes, create the contract:
      ]
      ```
 
-### Step 5: Commit Changes
+### Step 5: Validate Policy (if custom policy created)
 
-After creating the files:
+**If a custom `policy.xml` was created**, validate it before committing:
+
+1. **Update the validation script** (`validate-policy.py` in repo root) with the contract path:
+   ```python
+   policy_file = "bicep/infra/citadel-access-contracts/contracts/{team}-{usecase}/policy.xml"
+   product_id = "{ServiceCode}-{BusinessUnit}-{UseCaseName}-{Environment}"
+   ```
+
+2. **Run the validation**:
+   ```bash
+   python3 validate-policy.py
+   ```
+
+3. **If validation fails**:
+   - Review the error message carefully (APIM will show exactly which line/element has issues)
+   - Common issues:
+     - Invalid XML entities (use `&quot;` not `'` in string concatenation)
+     - Expression return types not allowed (avoid `List<T>`, use string arrays or comma-separated strings)
+     - Missing namespaces or invalid policy elements
+   - Fix the policy and re-validate
+
+4. **If validation passes** ✅:
+   - APIM accepted the policy XML
+   - Safe to proceed with commit
+
+**Why this matters**: The Bicep `what-if` deployment only validates Bicep syntax, not APIM policy XML semantics. The validation script catches policy-specific errors by actually applying the policy to APIM via REST API.
+
+### Step 6: Commit Changes
+
+After creating and validating the files:
 
 1. **Stage the files**: Run `git add bicep/infra/citadel-access-contracts/contracts/{team}-{usecase}/`
 2. **Commit with descriptive message**: Run `git commit -m "feat(access-contract): Add {BusinessUnit} {UseCaseName} access contract"`
 
-### Step 6: Push and Create PR
+### Step 7: Push and Create PR
 
 **Offer to complete the full workflow automatically:**
 
