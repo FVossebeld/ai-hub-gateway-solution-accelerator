@@ -1,0 +1,94 @@
+<policies>
+    <inbound>
+        <base />
+        
+        <!-- Rate limiting: 100 calls per minute per subscription -->
+        <rate-limit-by-key 
+            calls="100" 
+            renewal-period="60" 
+            counter-key="@(context.Subscription.Id)" />
+        
+        <!-- Token quota: 500K tokens per day -->
+        <quota-by-key 
+            calls="500000" 
+            renewal-period="86400" 
+            counter-key="@(context.Subscription.Id + '-tokens')" />
+        
+        <!-- Model allowlist: Restrict to GPT-5 and GPT-4o only -->
+        <set-variable name="allowedModels" value="@{
+            return new List<string> { 
+                &quot;gpt-5&quot;,
+                &quot;gpt-4o&quot;
+            };
+        }" />
+        
+        <!-- Validate model is in allowlist -->
+        <choose>
+            <when condition="@{
+                var allowedModels = (List<string>)context.Variables[&quot;allowedModels&quot;];
+                var requestedModel = context.Request.MatchedParameters.ContainsKey(&quot;deployment-id&quot;) 
+                    ? context.Request.MatchedParameters[&quot;deployment-id&quot;] 
+                    : &quot;&quot;;
+                
+                // For chat completions, check model in body
+                if (context.Request.Body != null &amp;&amp; context.Request.Body.As<JObject>(preserveContent: true) != null)
+                {
+                    var body = context.Request.Body.As<JObject>(preserveContent: true);
+                    if (body[&quot;model&quot;] != null)
+                    {
+                        requestedModel = body[&quot;model&quot;].ToString();
+                    }
+                }
+                
+                return !string.IsNullOrEmpty(requestedModel) &amp;&amp; !allowedModels.Any(m => requestedModel.Contains(m));
+            }">
+                <return-response>
+                    <set-status code="403" reason="Forbidden" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        return new JObject(
+                            new JProperty("error", new JObject(
+                                new JProperty("code", "ModelNotAllowed"),
+                                new JProperty("message", "Requested model is not in the allowlist for this subscription. Allowed models: gpt-5, gpt-4o")
+                            ))
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+        </choose>
+        
+        <!-- Custom header for tracking healthcare use case -->
+        <set-header name="X-UseCase" exists-action="override">
+            <value>Healthcare-PurchasingAgent</value>
+        </set-header>
+        
+        <!-- Custom header for compliance tracking -->
+        <set-header name="X-Compliance-Category" exists-action="override">
+            <value>HIPAA</value>
+        </set-header>
+    </inbound>
+    
+    <backend>
+        <base />
+    </backend>
+    
+    <outbound>
+        <base />
+        
+        <!-- Add usage information to response headers -->
+        <set-header name="X-RateLimit-Remaining" exists-action="override">
+            <value>@(context.Response.Headers.GetValueOrDefault("X-RateLimit-Remaining", "N/A"))</value>
+        </set-header>
+    </outbound>
+    
+    <on-error>
+        <base />
+        
+        <!-- Custom error handling for healthcare context -->
+        <set-header name="X-Error-Context" exists-action="override">
+            <value>Healthcare-PurchasingAgent</value>
+        </set-header>
+    </on-error>
+</policies>
