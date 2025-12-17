@@ -73,8 +73,12 @@ param services = [
     code: 'OAI'                           // Must match a key in apiNameMapping
     endpointSecretName: 'OPENAI-ENDPOINT' // Secret name for the endpoint URL
     apiKeySecretName: 'OPENAI-API-KEY'    // Secret name for the API key
-    policyXml: ''                         // Empty = use default policy
-    // policyXml: loadTextContent('policy.xml')  // Custom policy
+    
+    // POLICY OPTIONS:
+    // Empty string = uses default platform policy (recommended for most use cases)
+    //   Default includes: 300 tokens/min, gpt-4o/DeepSeek-R1 allowlist, content safety
+    // Custom policy = use loadTextContent('./policy.xml') for specific requirements
+    policyXml: ''
   }
   // Add more services as needed:
   // {

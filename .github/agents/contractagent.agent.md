@@ -50,10 +50,24 @@ Ask the user these questions (one or two at a time, conversationally):
   - \`speech-api\` - Speech-to-text, text-to-speech
   - \`translator-api\` - Translation services
 
-**Policy Requirements (optional):**
-- Do they need custom rate limits?
-- Do they need to restrict to specific models?
-- Any other policy customizations?
+**Policy Requirements:**
+
+After gathering API requirements, **always explain the default policy** to the user:
+
+> "Your product will use the platform's default policy, which includes:
+> - **Model Allowlist**: Only `gpt-4o` and `DeepSeek-R1` allowed
+> - **Token Limits**: 300 tokens/minute, 100K tokens/month
+> - **Content Safety**: Prompt shields and content filtering (Hate/Violence checks)
+> 
+> This policy is centrally managed, so you'll automatically get security updates."
+
+Then **ask if they need customization**:
+- "Do you need different rate limits than 300 tokens/minute?"
+- "Do you need access to different models?"
+- "Any other specific policy requirements?"
+
+**If they answer NO** → Leave `policyXml: ''` with a comment explaining default usage
+**If they answer YES** → Create `policy.xml` with the default as a starting point and customize
 
 ### Step 2: Create Feature Branch
 
@@ -94,7 +108,38 @@ Once validation passes, create the contract:
 
 2. **Create \`usecase.bicepparam\`** based on the template at \`bicep/infra/citadel-access-contracts/contracts/_template/usecase.bicepparam\`
 
-3. **Create \`policy.xml\`** (optional) if they need custom policies - copy from \`bicep/infra/citadel-access-contracts/contracts/_template/policy.xml\` and customize
+3. **Policy Handling** (based on user's answer in Step 1):
+
+   **Option A: Using Default Policy** (most common)
+   - Set `policyXml: ''` in the services array
+   - Add a helpful comment explaining the default policy usage:
+     ```bicep
+     services = [
+       {
+         code: 'OAI'
+         endpointSecretName: 'PREFIX-OPENAI-ENDPOINT'
+         apiKeySecretName: 'PREFIX-OPENAI-API-KEY'
+         // Uses default platform policy: 300 tokens/min, gpt-4o/DeepSeek-R1 only, content safety enabled
+         policyXml: ''
+       }
+     ]
+     ```
+
+   **Option B: Custom Policy** (when user needs customization)
+   - Create `policy.xml` file in the contract folder
+   - Copy default policy from `bicep/infra/citadel-access-contracts/policies/default-ai-product-policy.xml`
+   - Customize based on user requirements
+   - Reference it in usecase.bicepparam:
+     ```bicep
+     services = [
+       {
+         code: 'OAI'
+         endpointSecretName: 'PREFIX-OPENAI-ENDPOINT'
+         apiKeySecretName: 'PREFIX-OPENAI-API-KEY'
+         policyXml: loadTextContent('./policy.xml')
+       }
+     ]
+     ```
 
 ### Step 5: Commit Changes
 
@@ -190,6 +235,8 @@ param services = [
     code: 'OAI'
     endpointSecretName: '<PREFIX>-ENDPOINT'
     apiKeySecretName: '<PREFIX>-API-KEY'
+    // Empty = uses default platform policy (300 tokens/min, gpt-4o/DeepSeek-R1, content safety)
+    // For custom policy: policyXml: loadTextContent('./policy.xml')
     policyXml: ''
   }
 ]
@@ -290,6 +337,17 @@ What is your **team or business unit name**? And what would you like to call thi
 
 **User**: Just OpenAI for now, we'll use the universal API
 
+**Agent**: Perfect! Your product will use the platform's default policy, which includes:
+- **Model Allowlist**: Only `gpt-4o` and `DeepSeek-R1` allowed
+- **Token Limits**: 300 tokens/minute, 100K tokens/month
+- **Content Safety**: Prompt shields and content filtering
+
+This policy is centrally managed by the platform team, so you'll automatically get security updates.
+
+Do you need different rate limits or model access than what the default provides?
+
+**User**: No, the defaults are fine
+
 **Agent**: Perfect! Let me validate your resources first...
 
 *[Runs: az apim show --name apim-xot5i4klj5zea --resource-group rg-citadel-dev ...]*
@@ -329,8 +387,19 @@ What's your Azure **subscription ID**? (Or is it the same as the hub?)
 
 **Agent**: Perfect! Let me validate and create your contract...
 
+Your product will use the platform's default policy with:
+- Model Allowlist: `gpt-4o` and `DeepSeek-R1`
+- Token Limits: 300 tokens/minute, 100K tokens/month
+- Content Safety enabled
+
+Do you need custom rate limits or different model access?
+
+**User**: No, defaults are fine
+
+**Agent**: Great! Let me validate resources and create your contract...
+
 *[Validates APIM exists]*
-*[Creates branch, files with useTargetAzureKeyVault = false, commits, pushes, creates PR]*
+*[Creates branch, files with useTargetAzureKeyVault = false and helpful comments about default policy, commits, pushes, creates PR]*
 
 ✅ **PR Created:** https://github.com/.../pull/124
 
@@ -347,3 +416,44 @@ az apim subscription show \
 Gateway endpoint: `https://apim-xot5i4klj5zea.azure-api.net`
 
 Would you like me to customize any rate limits or add additional services?
+### Example 3: With Custom Policy
+
+**User**: I need OpenAI access for a high-volume customer service bot
+
+**Agent**: Great! What's your team or business unit name and use case name?
+
+**User**: Team is CustomerSupport, use case is ServiceBot, PROD environment
+
+**Agent**: Perfect! Do you have a spoke Key Vault?
+
+**User**: Yes, kv-custsupport-prod in rg-custsupport-prod, subscription 12345678-1234-1234-1234-123456789abc
+
+**Agent**: Excellent. Which AI services do you need?
+
+**User**: Just OpenAI with the universal LLM API
+
+**Agent**: Got it. Your product will use the default policy with:
+- Model Allowlist: `gpt-4o` and `DeepSeek-R1`  
+- Token Limits: 300 tokens/minute, 100K tokens/month
+- Content Safety enabled
+
+This is centrally managed for automatic security updates. Do you need different limits or model access?
+
+**User**: Yes, we need 1000 tokens/minute and access to gpt-4o-mini as well
+
+**Agent**: Perfect! I'll create a custom policy.xml for you with those changes. Let me validate resources first...
+
+*[Validates APIM and Key Vault exist]*
+*[Creates branch]*
+*[Creates usecase.bicepparam with policyXml: loadTextContent('./policy.xml')]*
+*[Creates policy.xml based on default, but with updated token limits and model allowlist]*
+*[Commits, pushes, creates PR]*
+
+✅ **PR Created:** https://github.com/.../pull/125
+
+Your custom policy includes:
+- Model Allowlist: `gpt-4o`, `gpt-4o-mini`, `DeepSeek-R1`
+- Token Limits: **1000 tokens/minute** (custom)
+- Content Safety enabled
+
+After merge, credentials will be in `kv-custsupport-prod`.
