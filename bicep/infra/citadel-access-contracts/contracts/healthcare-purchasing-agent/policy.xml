@@ -12,20 +12,15 @@
         <quota-by-key 
             calls="500000" 
             renewal-period="86400" 
-            counter-key="@(context.Subscription.Id + '-tokens')" />
+            counter-key="@(context.Subscription.Id + &quot;-tokens&quot;)" />
         
         <!-- Model allowlist: Restrict to GPT-5 and GPT-4o only -->
-        <set-variable name="allowedModels" value="@{
-            return new List<string> { 
-                &quot;gpt-5&quot;,
-                &quot;gpt-4o&quot;
-            };
-        }" />
+        <set-variable name="allowedModels" value="gpt-5,gpt-4o" />
         
         <!-- Validate model is in allowlist -->
         <choose>
             <when condition="@{
-                var allowedModels = (List<string>)context.Variables[&quot;allowedModels&quot;];
+                var allowedModels = ((string)context.Variables[&quot;allowedModels&quot;]).Split(',');
                 var requestedModel = context.Request.MatchedParameters.ContainsKey(&quot;deployment-id&quot;) 
                     ? context.Request.MatchedParameters[&quot;deployment-id&quot;] 
                     : &quot;&quot;;
