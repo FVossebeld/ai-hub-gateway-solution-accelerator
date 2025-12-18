@@ -23,8 +23,8 @@ param apim = {
 
 param keyVault = {
   subscriptionId: '3a0eed45-6d6a-4200-a0f1-85e73312a1a8'
-  resourceGroupName: 'rg-healthcare-purchasing-agent-dev'
-  name: 'kv-healthcare-pa-dev'
+  resourceGroupName: 'rg-healthcare-purchasing-dev'
+  name: 'kv-healthcarepurchasing'
 }
 
 // Store credentials in spoke Key Vault
