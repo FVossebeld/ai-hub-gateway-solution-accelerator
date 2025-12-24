@@ -1,0 +1,91 @@
+<policies>
+    <inbound>
+        <base />
+        <!-- Rate limiting -->
+        <rate-limit calls="100" renewal-period="60" />
+        
+        <!-- Use the Google Search backend -->
+        <set-backend-service backend-id="google-search-backend" />
+        
+        <!-- Inject Google API Key -->
+        <set-query-parameter name="key" exists-action="override">
+            <value>{{google-search-api-key}}</value>
+        </set-query-parameter>
+        
+        <!-- Inject default CX (Search Engine ID) -->
+        <set-query-parameter name="cx" exists-action="skip">
+            <value>{{google-search-engine-id}}</value>
+        </set-query-parameter>
+        
+        <!-- Set default num if not provided -->
+        <set-query-parameter name="num" exists-action="skip">
+            <value>5</value>
+        </set-query-parameter>
+        
+        <!-- Store the query for response -->
+        <set-variable name="searchQuery" value="@(context.Request.Url.Query.GetValueOrDefault("q", ""))" />
+        
+        <!-- Validate required parameters -->
+        <choose>
+            <when condition="@(context.Request.Url.Query.GetValueOrDefault("q", "") == "")">
+                <return-response>
+                    <set-status code="400" reason="Bad Request" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>{"error": "Missing required parameter 'q' (search query)"}</set-body>
+                </return-response>
+            </when>
+        </choose>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        
+        <!-- Transform response to simplified format -->
+        <set-body>@{
+            var response = context.Response.Body.As<JObject>(preserveContent: true);
+            var query = context.Variables.GetValueOrDefault<string>("searchQuery", "");
+            
+            var simplified = new JObject();
+            simplified["query"] = query;
+            simplified["totalResults"] = response["searchInformation"]?["totalResults"]?.ToString() ?? "0";
+            
+            var results = new JArray();
+            var items = response["items"] as JArray;
+            if (items != null) {
+                foreach (var item in items) {
+                    var result = new JObject();
+                    result["title"] = item["title"]?.ToString() ?? "";
+                    result["url"] = item["link"]?.ToString() ?? "";
+                    result["snippet"] = item["snippet"]?.ToString() ?? "";
+                    results.Add(result);
+                }
+            }
+            simplified["results"] = results;
+            
+            return simplified.ToString();
+        }</set-body>
+        
+        <!-- Add custom headers -->
+        <set-header name="X-Powered-By" exists-action="override">
+            <value>Citadel AI Gateway</value>
+        </set-header>
+    </outbound>
+    <on-error>
+        <base />
+        <return-response>
+            <set-status code="500" reason="Internal Server Error" />
+            <set-header name="Content-Type" exists-action="override">
+                <value>application/json</value>
+            </set-header>
+            <set-body>@{
+                return new JObject(
+                    new JProperty("error", context.LastError.Message ?? "An error occurred")
+                ).ToString();
+            }</set-body>
+        </return-response>
+    </on-error>
+</policies>

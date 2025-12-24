@@ -207,7 +207,7 @@ jobs:
     if: |
       github.event_name != 'pull_request' && 
       needs.detect-changes.outputs.has_changes == 'true'
-    environment: production
+    environment: development
     strategy:
       matrix:
         contract: ${{ fromJson(needs.detect-changes.outputs.contracts) }}

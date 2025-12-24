@@ -63,6 +63,12 @@ param apiCenterAPIEnvironment string = 'api-dev'
 // MCP Samples (Weather API, Weather MCP, MS Learn MCP)
 param isMCPSampleDeployed bool = false
 
+// Google Custom Search API Integration
+param enableGoogleSearchAPI bool = false
+param googleSearchEngineId string = ''
+@secure()
+param googleSearchApiKey string = ''
+
 /**
  * LLM Backend Configuration
  * This parameter defines all LLM backends and their supported models for dynamic routing.
@@ -546,6 +552,44 @@ resource contentSafetyServiceUrlNamedValue 'Microsoft.ApiManagement/service/name
   }
 }
 
+// Google Custom Search API Key Named Value
+resource googleSearchApiKeyNamedValue 'Microsoft.ApiManagement/service/namedValues@2022-08-01' = if (enableGoogleSearchAPI) {
+  name: 'google-search-api-key'
+  parent: apimService
+  properties: {
+    displayName: 'google-search-api-key'
+    secret: true
+    value: googleSearchApiKey
+  }
+}
+
+// Google Custom Search Engine ID (CX) Named Value
+resource googleSearchEngineIdNamedValue 'Microsoft.ApiManagement/service/namedValues@2022-08-01' = if (enableGoogleSearchAPI) {
+  name: 'google-search-engine-id'
+  parent: apimService
+  properties: {
+    displayName: 'google-search-engine-id'
+    secret: false
+    value: googleSearchEngineId
+  }
+}
+
+// Google Custom Search API Backend
+resource googleSearchBackend 'Microsoft.ApiManagement/service/backends@2024-06-01-preview' = if (enableGoogleSearchAPI) {
+  name: 'google-search-backend'
+  parent: apimService
+  properties: {
+    title: 'Google Custom Search API'
+    description: 'Backend for Google Custom Search API'
+    url: 'https://customsearch.googleapis.com/customsearch/v1'
+    protocol: 'http'
+    tls: {
+      validateCertificateChain: true
+      validateCertificateName: true
+    }
+  }
+}
+
 // Policy Fragments Module
 module policyFragments './policy-fragments.bicep' = {
   name: 'apim-policy-fragments'
@@ -716,6 +760,58 @@ module weatherMCP './mcp-from-api.bicep' = if (isMCPSampleDeployed) {
   dependsOn: [
     weatherAPI
     apimLogger
+  ]
+}
+
+// Google Custom Search API
+module googleSearchAPI './api.bicep' = if (enableGoogleSearchAPI) {
+  name: 'google-search-api'
+  params: {
+    serviceName: apimService.name
+    apiName: 'google-search-api'
+    path: 'google-search'
+    apiRevision: '1'
+    apiDispalyName: 'Google Custom Search API'
+    subscriptionRequired: true
+    subscriptionKeyName: 'api-key'
+    openApiSpecification: loadTextContent('./google-search-api/openapi.json')
+    apiDescription: 'Google Custom Search API for programmatic web searches'
+    policyDocument: loadTextContent('./google-search-api/policy.xml')
+    enableAPIDeployment: true
+    enableAPIDiagnostics: true
+    apimLoggerId: 'azuremonitor'
+  }
+  dependsOn: [
+    apimLogger
+    googleSearchApiKeyNamedValue
+    googleSearchEngineIdNamedValue
+    googleSearchBackend
+  ]
+}
+
+// Google Custom Search API (Simple) - Simplified interface with limited response
+module googleSearchSimpleAPI './api.bicep' = if (enableGoogleSearchAPI) {
+  name: 'google-search-simple-api'
+  params: {
+    serviceName: apimService.name
+    apiName: 'google-search-simple-api'
+    path: 'google-search-simple'
+    apiRevision: '1'
+    apiDispalyName: 'Google Search API (Simple)'
+    subscriptionRequired: true
+    subscriptionKeyName: 'api-key'
+    openApiSpecification: loadTextContent('./google-search-api/openapi-simple.json')
+    apiDescription: 'Simplified Google Search API with streamlined results (title, url, snippet only)'
+    policyDocument: loadTextContent('./google-search-api/policy-simple.xml')
+    enableAPIDeployment: true
+    enableAPIDiagnostics: true
+    apimLoggerId: 'azuremonitor'
+  }
+  dependsOn: [
+    apimLogger
+    googleSearchApiKeyNamedValue
+    googleSearchEngineIdNamedValue
+    googleSearchBackend
   ]
 }
 

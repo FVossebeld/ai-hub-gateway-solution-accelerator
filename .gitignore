@@ -403,7 +403,6 @@ src/usage-ingestion-function/local.settings.json
 local/**/*
 
 .debug
-.git*
 .vscode
 **/__azurite_db*__.json
 **/__blobstorage__
