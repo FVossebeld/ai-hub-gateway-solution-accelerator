@@ -31,12 +31,13 @@
             token-quota-period="Monthly" 
             retry-after-header-name="retry-after" />
         
-        <!-- Content Safety: Still required even in sandbox -->
-        <llm-content-safety backend-id="content-safety-backend" shield-prompt="true">
+        <!-- Content Safety: Relaxed for sandbox learning environment -->
+        <llm-content-safety backend-id="content-safety-backend" shield-prompt="false">
             <!-- 0 is most restrictive and can be set up-to 7 -->
+            <!-- Sandbox uses threshold 7 (least restrictive) for maximum flexibility -->
             <categories output-type="EightSeverityLevels">
-                <category name="Hate" threshold="3" />
-                <category name="Violence" threshold="3" />
+                <category name="Hate" threshold="7" />
+                <category name="Violence" threshold="7" />
             </categories>
         </llm-content-safety>
         

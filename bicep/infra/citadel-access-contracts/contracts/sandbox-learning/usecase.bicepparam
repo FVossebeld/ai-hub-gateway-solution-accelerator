@@ -129,7 +129,7 @@ This API subscription provides access to all available AI models and services fo
 - For learning, development, and experimentation only
 - Not for production workloads
 - All requests are logged for monitoring and cost attribution
-- Content safety policies still apply
+- **Content safety policies are RELAXED** (threshold 7, prompt shields disabled) for maximum learning flexibility
 
 ## Data Handling
 - Do not use with sensitive or production data
