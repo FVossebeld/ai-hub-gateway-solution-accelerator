@@ -137,8 +137,8 @@ param useCase = {
 //
 // Structure: { <ServiceCode>: [<API-Name-1>, <API-Name-2>, ...] }
 //
-// Common service codes:
-// - LLM or OAI: Azure OpenAI Service APIs
+// Common service codes (choose any code that makes sense for your use case):
+// - LLM or OAI: Azure OpenAI / LLM APIs (example below uses 'LLM')
 // - DOC: Document Intelligence APIs
 // - CS: Content Safety APIs
 // - CV: Computer Vision APIs
@@ -146,6 +146,10 @@ param useCase = {
 // - LANG: Language Service APIs
 // - SPCH: Speech Service APIs
 // - TRAN: Translator APIs
+//
+// Note: Service codes are arbitrary identifiers you choose. They become part of
+// the product name: {ServiceCode}-{BusinessUnit}-{UseCaseName}-{Environment}
+// Example: LLM-Healthcare-PatientAssistant-PROD or OAI-Finance-ChatBot-DEV
 //
 // Common API names in Citadel deployments:
 // - 'azure-openai-api' - Azure OpenAI Service
@@ -175,6 +179,12 @@ param useCase = {
 //   ]
 // }
 //
+// Alternative example using OAI instead of LLM:
+// param apiNameMapping = {
+//   OAI: ['azure-openai-api']
+//   DOC: ['document-intelligence-api']
+// }
+//
 // Note: API names are case-sensitive and must match exactly with APIM.
 // ============================================================================
 param apiNameMapping = {
@@ -182,6 +192,8 @@ param apiNameMapping = {
   // Add more service codes and API mappings as needed
   // DOC: ['document-intelligence-api']
   // SRCH: ['ai-search-api']
+  // Or use alternative service codes like:
+  // OAI: ['azure-openai-api']  // Alternative to LLM
 }
 
 // ============================================================================

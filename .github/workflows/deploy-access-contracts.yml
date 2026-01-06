@@ -151,6 +151,9 @@ jobs:
             # Strategy: Extract all quoted strings, then filter out service code keys
             # Service codes are typically all-uppercase (e.g., OAI, DOC, SRCH)
             # Also remove inline comments to avoid false matches
+            # Note: Using -A 200 to capture up to 200 lines after the start of apiNameMapping.
+            # This should handle even very large configurations (typical configs are <50 lines).
+            # If you have a config larger than 200 lines, increase this value accordingly.
             API_NAMES=$(grep -A 200 "param apiNameMapping" "$CONTRACT_PATH" | \
               sed -n '/param apiNameMapping/,/^}/p' | \
               sed 's|//.*$||' | \
@@ -174,7 +177,15 @@ jobs:
               if [ -z "$AVAILABLE_APIS" ]; then
                 echo "❌ ERROR: Unable to retrieve API list from APIM '$APIM_NAME'"
                 echo ""
-                echo "This could be due to permissions or APIM configuration issues."
+                echo "Possible causes:"
+                echo "  1. Insufficient permissions - You need 'API Management Service Reader' role or higher"
+                echo "  2. APIM instance is not accessible or doesn't exist"
+                echo "  3. Network connectivity issues"
+                echo ""
+                echo "To troubleshoot:"
+                echo "  - Verify APIM exists: az apim show --name $APIM_NAME --resource-group $APIM_RG"
+                echo "  - Check your permissions: az role assignment list --scope /subscriptions/$APIM_SUB/resourceGroups/$APIM_RG"
+                echo "  - Ensure you have 'API Management Service Contributor' or 'Reader' role"
                 exit 1
               fi
 
