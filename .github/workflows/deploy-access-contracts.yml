@@ -1,5 +1,5 @@
 # Deploy Citadel Access Contracts
-# 
+#
 # This workflow deploys access contracts when changes are merged to citadel-v1.
 # PRs and other branches are validated only, not deployed.
 # It only deploys contracts that have changed, not all contracts.
@@ -40,13 +40,13 @@ jobs:
     outputs:
       contracts: ${{ steps.changes.outputs.contracts }}
       has_changes: ${{ steps.changes.outputs.has_changes }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Detect changed contracts
         id: changes
         run: |
@@ -60,7 +60,7 @@ jobs:
             else
               BASE_SHA=${{ github.event.before }}
             fi
-            
+
             # Get changed contract folders (excluding _template)
             CHANGED=$(git diff --name-only $BASE_SHA ${{ github.sha }} -- "${{ env.CONTRACTS_PATH }}/" | \
               grep -E "^${{ env.CONTRACTS_PATH }}/[^/]+/" | \
@@ -70,12 +70,12 @@ jobs:
               grep -v "^README" | \
               sort -u | \
               jq -R -s -c 'split("\n") | map(select(length > 0))')
-            
+
             CONTRACTS="${CHANGED:-[]}"
           fi
-          
+
           echo "contracts=$CONTRACTS" >> $GITHUB_OUTPUT
-          
+
           if [ "$CONTRACTS" == "[]" ]; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
             echo "No contract changes detected"
@@ -95,38 +95,38 @@ jobs:
     strategy:
       matrix:
         contract: ${{ fromJson(needs.detect-changes.outputs.contracts) }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Azure Login
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      
+
       - name: Pre-flight resource validation for ${{ matrix.contract }}
         run: |
           CONTRACT_PATH="${{ env.CONTRACTS_PATH }}/${{ matrix.contract }}/usecase.bicepparam"
-          
+
           if [ ! -f "$CONTRACT_PATH" ]; then
             echo "❌ Contract file not found: $CONTRACT_PATH"
             exit 1
           fi
-          
+
           echo "🔍 Validating referenced Azure resources exist..."
-          
+
           # Extract APIM configuration from bicepparam file
           APIM_SUB=$(grep -A3 "param apim" "$CONTRACT_PATH" | grep "subscriptionId:" | sed "s/.*'\([^']*\)'.*/\1/")
           APIM_RG=$(grep -A3 "param apim" "$CONTRACT_PATH" | grep "resourceGroupName:" | sed "s/.*'\([^']*\)'.*/\1/")
           APIM_NAME=$(grep -A4 "param apim" "$CONTRACT_PATH" | grep "name:" | head -1 | sed "s/.*'\([^']*\)'.*/\1/")
-          
+
           echo "  APIM Subscription: $APIM_SUB"
           echo "  APIM Resource Group: $APIM_RG"
           echo "  APIM Name: $APIM_NAME"
-          
+
           # Validate APIM exists
           if [ -n "$APIM_NAME" ] && [ "$APIM_NAME" != "" ]; then
             echo ""
@@ -142,11 +142,11 @@ jobs:
               echo "Please update the 'apim.name' value in your contract file."
               exit 1
             fi
-            
+
             # Validate API names exist in APIM
             echo ""
             echo "🔎 Validating API names in apiNameMapping exist in APIM..."
-            
+
             # Extract all API names from apiNameMapping
             API_NAMES=$(grep -A 100 "param apiNameMapping" "$CONTRACT_PATH" | \
               sed -n '/param apiNameMapping/,/^}/p' | \
@@ -154,26 +154,26 @@ jobs:
               grep -v "param\|apiNameMapping" | \
               tr -d "'" | \
               sort -u)
-            
+
             if [ -z "$API_NAMES" ]; then
               echo "⚠️  Warning: No API names found in apiNameMapping"
             else
               echo "  Checking API names:"
-              
+
               # Get list of all APIs in APIM
               AVAILABLE_APIS=$(az apim api list \
                 --resource-group "$APIM_RG" \
                 --service-name "$APIM_NAME" \
                 --subscription "$APIM_SUB" \
                 --query "[].name" -o tsv 2>/dev/null || echo "")
-              
+
               if [ -z "$AVAILABLE_APIS" ]; then
                 echo "❌ ERROR: Unable to retrieve API list from APIM '$APIM_NAME'"
                 echo ""
                 echo "This could be due to permissions or APIM configuration issues."
                 exit 1
               fi
-              
+
               # Validate each API name
               MISSING_APIS=""
               for api in $API_NAMES; do
@@ -184,7 +184,7 @@ jobs:
                   MISSING_APIS="$MISSING_APIS\n    - $api"
                 fi
               done
-              
+
               # Fail if any APIs are missing
               if [ -n "$MISSING_APIS" ]; then
                 echo ""
@@ -202,19 +202,19 @@ jobs:
                 echo ""
                 exit 1
               fi
-              
+
               echo "✅ All API names validated successfully"
             fi
           fi
-          
+
           # Extract Key Vault configuration
           USE_KV=$(grep "useTargetAzureKeyVault" "$CONTRACT_PATH" | grep -o "true\|false" || echo "false")
-          
+
           if [ "$USE_KV" == "true" ]; then
             KV_SUB=$(grep -A3 "param keyVault" "$CONTRACT_PATH" | grep "subscriptionId:" | sed "s/.*'\([^']*\)'.*/\1/")
             KV_RG=$(grep -A3 "param keyVault" "$CONTRACT_PATH" | grep "resourceGroupName:" | sed "s/.*'\([^']*\)'.*/\1/")
             KV_NAME=$(grep -A4 "param keyVault" "$CONTRACT_PATH" | grep "name:" | head -1 | sed "s/.*'\([^']*\)'.*/\1/")
-            
+
             if [ -n "$KV_NAME" ] && [ "$KV_NAME" != "" ]; then
               echo ""
               echo "🔎 Checking if Key Vault '$KV_NAME' exists..."
@@ -231,23 +231,23 @@ jobs:
             echo ""
             echo "ℹ️  Key Vault storage disabled (useTargetAzureKeyVault = false)"
           fi
-          
+
           echo ""
           echo "✅ Pre-flight resource validation passed"
-      
+
       - name: Validate Bicep template for ${{ matrix.contract }}
         run: |
           CONTRACT_PATH="${{ env.CONTRACTS_PATH }}/${{ matrix.contract }}/usecase.bicepparam"
-          
+
           echo "📋 Validating Bicep template..."
           az deployment sub validate \
             --location ${{ env.AZURE_LOCATION }} \
             --template-file bicep/infra/citadel-access-contracts/main.bicep \
             --parameters "$CONTRACT_PATH" \
             --output table
-          
+
           echo "✅ ${{ matrix.contract }} Bicep validation passed"
-      
+
       - name: Comment on PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
@@ -268,41 +268,41 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-changes, validate]
     if: |
-      github.event_name != 'pull_request' && 
+      github.event_name != 'pull_request' &&
       needs.detect-changes.outputs.has_changes == 'true'
     environment: production
     strategy:
       matrix:
         contract: ${{ fromJson(needs.detect-changes.outputs.contracts) }}
       max-parallel: 1  # Deploy one at a time to avoid conflicts
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Azure Login
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      
+
       - name: Deploy ${{ matrix.contract }}
         run: |
           CONTRACT_PATH="${{ env.CONTRACTS_PATH }}/${{ matrix.contract }}/usecase.bicepparam"
           DEPLOYMENT_NAME="contract-${{ matrix.contract }}-$(date +%Y%m%d-%H%M%S)"
-          
+
           echo "🚀 Deploying ${{ matrix.contract }}..."
-          
+
           az deployment sub create \
             --name "$DEPLOYMENT_NAME" \
             --location ${{ env.AZURE_LOCATION }} \
             --template-file bicep/infra/citadel-access-contracts/main.bicep \
             --parameters "$CONTRACT_PATH" \
             --output table
-          
+
           echo "✅ ${{ matrix.contract }} deployed successfully"
-      
+
       - name: Summary
         run: |
           echo "### Contract Deployed: ${{ matrix.contract }} :rocket:" >> $GITHUB_STEP_SUMMARY
@@ -320,7 +320,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-changes, deploy]
     if: always() && github.event_name != 'pull_request'
-    
+
     steps:
       - name: Summary
         run: |
@@ -328,7 +328,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Contract | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
-          
+
           CONTRACTS='${{ needs.detect-changes.outputs.contracts }}'
           for contract in $(echo $CONTRACTS | jq -r '.[]'); do
             echo "| $contract | ✅ Deployed |" >> $GITHUB_STEP_SUMMARY
