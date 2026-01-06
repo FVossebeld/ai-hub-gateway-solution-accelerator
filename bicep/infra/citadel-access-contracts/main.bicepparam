@@ -124,14 +124,37 @@ param useCase = {
 // Maps service codes to their corresponding API names in APIM.
 // These APIs must already exist in your APIM instance before deployment.
 //
+// ⚠️ CRITICAL PRE-CHECK: Verify API Names Exist
+// BEFORE deployment, run this command to list all available APIs in your APIM:
+//
+//   az apim api list \
+//     --resource-group <your-apim-rg> \
+//     --service-name <your-apim-name> \
+//     --query "[].name" -o tsv
+//
+// Copy the exact API names from the output (case-sensitive) to your apiNameMapping below.
+// Deployment will fail with "ValidationError: API not found" if any API name doesn't exist.
+//
 // Structure: { <ServiceCode>: [<API-Name-1>, <API-Name-2>, ...] }
 //
 // Common service codes:
-// - OAI: Azure OpenAI Service APIs
+// - LLM or OAI: Azure OpenAI Service APIs
 // - DOC: Document Intelligence APIs
 // - CS: Content Safety APIs
 // - CV: Computer Vision APIs
-// - SEARCH: Azure AI Search APIs
+// - SRCH or SEARCH: Azure AI Search APIs
+// - LANG: Language Service APIs
+// - SPCH: Speech Service APIs
+// - TRAN: Translator APIs
+//
+// Common API names in Citadel deployments:
+// - 'azure-openai-api' - Azure OpenAI Service
+// - 'universal-llm-api' - Universal LLM API (multi-provider)
+// - 'document-intelligence-api' - Document Intelligence
+// - 'ai-search-api' - AI Search
+// - 'language-api' - Language Service
+// - 'speech-api' - Speech Service
+// - 'translator-api' - Translator Service
 //
 // Each service code can map to one or more APIM API names. This allows:
 // 1. Multiple APIs per service (e.g., different OpenAI deployments)
@@ -148,7 +171,7 @@ param useCase = {
 //     'document-intelligence-api'
 //   ]
 //   SRCH: [
-//     'azure-ai-search-index-api'
+//     'ai-search-api'
 //   ]
 // }
 //
@@ -157,8 +180,8 @@ param useCase = {
 param apiNameMapping = {
   LLM: ['universal-llm-api', 'azure-openai-api']
   // Add more service codes and API mappings as needed
-  // DOC: ['document-intelligence-api', 'document-intelligence-api-legacy']
-  // SRCH: ['azure-ai-search-index-api']
+  // DOC: ['document-intelligence-api']
+  // SRCH: ['ai-search-api']
 }
 
 // ============================================================================

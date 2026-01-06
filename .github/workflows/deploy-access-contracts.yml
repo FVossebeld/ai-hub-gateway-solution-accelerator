@@ -142,6 +142,69 @@ jobs:
               echo "Please update the 'apim.name' value in your contract file."
               exit 1
             fi
+            
+            # Validate API names exist in APIM
+            echo ""
+            echo "🔎 Validating API names in apiNameMapping exist in APIM..."
+            
+            # Extract all API names from apiNameMapping
+            API_NAMES=$(grep -A 100 "param apiNameMapping" "$CONTRACT_PATH" | \
+              sed -n '/param apiNameMapping/,/^}/p' | \
+              grep -oE "'[^']+'" | \
+              grep -v "param\|apiNameMapping" | \
+              tr -d "'" | \
+              sort -u)
+            
+            if [ -z "$API_NAMES" ]; then
+              echo "⚠️  Warning: No API names found in apiNameMapping"
+            else
+              echo "  Checking API names:"
+              
+              # Get list of all APIs in APIM
+              AVAILABLE_APIS=$(az apim api list \
+                --resource-group "$APIM_RG" \
+                --service-name "$APIM_NAME" \
+                --subscription "$APIM_SUB" \
+                --query "[].name" -o tsv 2>/dev/null || echo "")
+              
+              if [ -z "$AVAILABLE_APIS" ]; then
+                echo "❌ ERROR: Unable to retrieve API list from APIM '$APIM_NAME'"
+                echo ""
+                echo "This could be due to permissions or APIM configuration issues."
+                exit 1
+              fi
+              
+              # Validate each API name
+              MISSING_APIS=""
+              for api in $API_NAMES; do
+                if echo "$AVAILABLE_APIS" | grep -qx "$api"; then
+                  echo "  ✅ $api"
+                else
+                  echo "  ❌ $api (NOT FOUND)"
+                  MISSING_APIS="$MISSING_APIS\n    - $api"
+                fi
+              done
+              
+              # Fail if any APIs are missing
+              if [ -n "$MISSING_APIS" ]; then
+                echo ""
+                echo "❌ ERROR: The following API names from your apiNameMapping do not exist in APIM '$APIM_NAME':"
+                echo -e "$MISSING_APIS"
+                echo ""
+                echo "Available APIs in APIM:"
+                echo "$AVAILABLE_APIS" | sed 's/^/    - /'
+                echo ""
+                echo "To fix this issue:"
+                echo "  1. Verify the API names in your usecase.bicepparam file match exactly (case-sensitive)"
+                echo "  2. Or deploy the missing APIs to APIM first"
+                echo "  3. You can list available APIs with:"
+                echo "     az apim api list --resource-group $APIM_RG --service-name $APIM_NAME --query \"[].name\" -o tsv"
+                echo ""
+                exit 1
+              fi
+              
+              echo "✅ All API names validated successfully"
+            fi
           fi
           
           # Extract Key Vault configuration

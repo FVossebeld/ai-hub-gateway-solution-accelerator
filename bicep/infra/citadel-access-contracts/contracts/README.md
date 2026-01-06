@@ -56,8 +56,21 @@ When a contract is deployed, it creates:
 | `apim` | Hub APIM coordinates (provided by platform team) |
 | `keyVault` | Your spoke's Key Vault for credentials |
 | `useCase` | Business unit, use case name, environment |
-| `apiNameMapping` | Which APIs you need (OAI, DOC, SRCH, etc.) |
+| `apiNameMapping` | Which APIs you need (OAI, DOC, SRCH, etc.) - **Must verify these exist in APIM before deployment** |
 | `services` | Detailed service configuration with secrets |
+
+### ⚠️ Important: API Name Validation
+
+**Before submitting your contract**, verify that all API names in your `apiNameMapping` exist in the hub APIM:
+
+```bash
+az apim api list \
+  --resource-group <hub-apim-rg> \
+  --service-name <hub-apim-name> \
+  --query "[].name" -o tsv
+```
+
+Copy the exact API names (case-sensitive) from this output to your `apiNameMapping` parameter. Deployment will fail with "ValidationError: API not found" if any API name doesn't exist.
 
 ## Available Service Codes
 
