@@ -148,11 +148,15 @@ jobs:
             echo "🔎 Validating API names in apiNameMapping exist in APIM..."
 
             # Extract all API names from apiNameMapping
-            API_NAMES=$(grep -A 100 "param apiNameMapping" "$CONTRACT_PATH" | \
+            # Strategy: Extract all quoted strings, then filter out service code keys
+            # Service codes are typically all-uppercase (e.g., OAI, DOC, SRCH)
+            # Also remove inline comments to avoid false matches
+            API_NAMES=$(grep -A 200 "param apiNameMapping" "$CONTRACT_PATH" | \
               sed -n '/param apiNameMapping/,/^}/p' | \
+              sed 's|//.*$||' | \
               grep -oE "'[^']+'" | \
-              grep -v "param\|apiNameMapping" | \
               tr -d "'" | \
+              grep -v "^[A-Z][A-Z]*$" | \
               sort -u)
 
             if [ -z "$API_NAMES" ]; then
