@@ -416,3 +416,6 @@ local/**/*
 infra/usecase-onboarding/samples/financial-assistant-usecase-local.sh
 **/*local.bicepparam
 .env
+
+# Bicep compiled parameters (generated during build)
+bicep/infra/citadel-access-contracts/contracts/**/usecase.json
