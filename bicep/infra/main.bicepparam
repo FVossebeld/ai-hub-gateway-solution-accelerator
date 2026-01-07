@@ -1,164 +1,168 @@
 using './main.bicep'
 
+/*
+ * Development Environment Configuration
+ * Optimized for cost and quick deployments
+ */
+
 // ============================================================================
 // BASIC PARAMETERS
 // ============================================================================
-param environmentName = readEnvironmentVariable('AZURE_ENV_NAME', 'citadel-dev')
-param location = readEnvironmentVariable('AZURE_LOCATION', 'swedencentral')
-param apicLocation = readEnvironmentVariable('APIC_LOCATION', 'swedencentral')
+param environmentName = 'citadel-dev'
+param location = 'swedencentral'
+param apicLocation = 'swedencentral'
+param resourceGroupName = ''  // Auto-generated based on environmentName
 param tags = {
-  'azd-env-name': readEnvironmentVariable('AZURE_ENV_NAME', 'citadel-dev')
+  'azd-env-name': 'citadel-dev'
   SecurityControl: 'Ignore'
+  Environment: 'Development'
+  CostCenter: 'Engineering'
 }
 
 // ============================================================================
-// RESOURCE NAMES - Assign custom names to different provisioned services
+// RESOURCE NAMES - Auto-generated, leave empty for defaults
 // ============================================================================
-param resourceGroupName = readEnvironmentVariable('AZURE_RESOURCE_GROUP', '')
-param apimIdentityName = readEnvironmentVariable('APIM_IDENTITY_NAME', '')
-param usageLogicAppIdentityName = readEnvironmentVariable('USAGE_LOGIC_APP_IDENTITY_NAME', '')
-param apimServiceName = readEnvironmentVariable('APIM_SERVICE_NAME', '')
-param logAnalyticsName = readEnvironmentVariable('LOG_ANALYTICS_NAME', '')
-param apimApplicationInsightsDashboardName = readEnvironmentVariable('APIM_APP_INSIGHTS_DASHBOARD_NAME', '')
-param funcAplicationInsightsDashboardName = readEnvironmentVariable('FUNC_APP_INSIGHTS_DASHBOARD_NAME', '')
-param foundryApplicationInsightsDashboardName = readEnvironmentVariable('FOUNDRY_APP_INSIGHTS_DASHBOARD_NAME', '')
-param apimApplicationInsightsName = readEnvironmentVariable('APIM_APP_INSIGHTS_NAME', '')
-param funcApplicationInsightsName = readEnvironmentVariable('FUNC_APP_INSIGHTS_NAME', '')
-param foundryApplicationInsightsName = readEnvironmentVariable('FOUNDRY_APP_INSIGHTS_NAME', '')
-param eventHubNamespaceName = readEnvironmentVariable('EVENTHUB_NAMESPACE_NAME', '')
-param cosmosDbAccountName = readEnvironmentVariable('COSMOS_DB_ACCOUNT_NAME', '')
-param usageProcessingLogicAppName = readEnvironmentVariable('USAGE_PROCESSING_LOGIC_APP_NAME', '')
-param storageAccountName = readEnvironmentVariable('STORAGE_ACCOUNT_NAME', '')
-param languageServiceName = readEnvironmentVariable('LANGUAGE_SERVICE_NAME', '')
-param aiContentSafetyName = readEnvironmentVariable('AI_CONTENT_SAFETY_NAME', '')
-param apicServiceName = readEnvironmentVariable('APIC_SERVICE_NAME', '')
-param aiFoundryResourceName = readEnvironmentVariable('AI_FOUNDRY_RESOURCE_NAME', '')
-param keyVaultName = readEnvironmentVariable('KEY_VAULT_NAME', '')
+param apimIdentityName = ''
+param usageLogicAppIdentityName = ''
+param apimServiceName = ''
+param logAnalyticsName = ''
+param apimApplicationInsightsDashboardName = ''
+param funcAplicationInsightsDashboardName = ''
+param foundryApplicationInsightsDashboardName = ''
+param apimApplicationInsightsName = ''
+param funcApplicationInsightsName = ''
+param foundryApplicationInsightsName = ''
+param eventHubNamespaceName = ''
+param cosmosDbAccountName = ''
+param usageProcessingLogicAppName = ''
+param storageAccountName = ''
+param languageServiceName = ''
+param aiContentSafetyName = ''
+param apicServiceName = ''
+param aiFoundryResourceName = ''
+param keyVaultName = ''
 
 // ============================================================================
 // MONITORING - Log Analytics configuration
 // ============================================================================
-param useExistingLogAnalytics = bool(readEnvironmentVariable('USE_EXISTING_LOG_ANALYTICS', 'false'))
-param existingLogAnalyticsName = readEnvironmentVariable('EXISTING_LOG_ANALYTICS_NAME', '')
-param existingLogAnalyticsRG = readEnvironmentVariable('EXISTING_LOG_ANALYTICS_RG', '')
-param existingLogAnalyticsSubscriptionId = readEnvironmentVariable('EXISTING_LOG_ANALYTICS_SUBSCRIPTION_ID', '')
+param useExistingLogAnalytics = false
+param existingLogAnalyticsName = ''
+param existingLogAnalyticsRG = ''
+param existingLogAnalyticsSubscriptionId = ''
 
 // ============================================================================
 // NETWORKING PARAMETERS - Network configuration and access controls
 // ============================================================================
-param vnetName = readEnvironmentVariable('VNET_NAME', '')
-param useExistingVnet = bool(readEnvironmentVariable('USE_EXISTING_VNET', 'false'))
-param existingVnetRG = readEnvironmentVariable('EXISTING_VNET_RG', '')
+param vnetName = ''
+param useExistingVnet = false
+param existingVnetRG = ''
 
 // Subnet names
-param apimSubnetName = readEnvironmentVariable('APIM_SUBNET_NAME', '')
-param privateEndpointSubnetName = readEnvironmentVariable('PRIVATE_ENDPOINT_SUBNET_NAME', '')
-param functionAppSubnetName = readEnvironmentVariable('FUNCTION_APP_SUBNET_NAME', '')
+param apimSubnetName = ''
+param privateEndpointSubnetName = ''
+param functionAppSubnetName = ''
 
 // NSG & route table names
-param apimNsgName = readEnvironmentVariable('APIM_NSG_NAME', '')
-param privateEndpointNsgName = readEnvironmentVariable('PRIVATE_ENDPOINT_NSG_NAME', '')
-param functionAppNsgName = readEnvironmentVariable('FUNCTION_APP_NSG_NAME', '')
-param apimRouteTableName = readEnvironmentVariable('APIM_ROUTE_TABLE_NAME', '')
+param apimNsgName = ''
+param privateEndpointNsgName = ''
+param functionAppNsgName = ''
+param apimRouteTableName = ''
 
 // VNet address space and subnet prefixes
-param vnetAddressPrefix = readEnvironmentVariable('VNET_ADDRESS_PREFIX', '10.170.0.0/24')
-param apimSubnetPrefix = readEnvironmentVariable('APIM_SUBNET_PREFIX', '10.170.0.0/26')
-param privateEndpointSubnetPrefix = readEnvironmentVariable('PRIVATE_ENDPOINT_SUBNET_PREFIX', '10.170.0.64/26')
-param functionAppSubnetPrefix = readEnvironmentVariable('FUNCTION_APP_SUBNET_PREFIX', '10.170.0.128/26')
+param vnetAddressPrefix = '10.170.0.0/24'
+param apimSubnetPrefix = '10.170.0.0/26'
+param privateEndpointSubnetPrefix = '10.170.0.64/26'
+param functionAppSubnetPrefix = '10.170.0.128/26'
 
 // DNS Zone parameters (legacy approach - single subscription/RG)
-param dnsZoneRG = readEnvironmentVariable('DNS_ZONE_RG', '')
-param dnsSubscriptionId = readEnvironmentVariable('DNS_SUBSCRIPTION_ID', '')
+param dnsZoneRG = ''
+param dnsSubscriptionId = ''
 
-// Existing Private DNS Zones (BYO approach - specify resource IDs per DNS zone type)
-// Use this when you have existing Private DNS Zones in different subscriptions/resource groups
-// Leave empty strings to use the legacy dnsZoneRG/dnsSubscriptionId approach
+// Existing Private DNS Zones (BYO approach)
 param existingPrivateDnsZones = {
-  openai: readEnvironmentVariable('EXISTING_DNS_ZONE_OPENAI', '')              // privatelink.openai.azure.com
-  keyVault: readEnvironmentVariable('EXISTING_DNS_ZONE_KEYVAULT', '')          // privatelink.vaultcore.azure.net
-  monitor: readEnvironmentVariable('EXISTING_DNS_ZONE_MONITOR', '')            // privatelink.monitor.azure.com
-  eventHub: readEnvironmentVariable('EXISTING_DNS_ZONE_EVENTHUB', '')          // privatelink.servicebus.windows.net
-  cosmosDb: readEnvironmentVariable('EXISTING_DNS_ZONE_COSMOSDB', '')          // privatelink.documents.azure.com
-  storageBlob: readEnvironmentVariable('EXISTING_DNS_ZONE_STORAGE_BLOB', '')   // privatelink.blob.core.windows.net
-  storageFile: readEnvironmentVariable('EXISTING_DNS_ZONE_STORAGE_FILE', '')   // privatelink.file.core.windows.net
-  storageTable: readEnvironmentVariable('EXISTING_DNS_ZONE_STORAGE_TABLE', '') // privatelink.table.core.windows.net
-  storageQueue: readEnvironmentVariable('EXISTING_DNS_ZONE_STORAGE_QUEUE', '') // privatelink.queue.core.windows.net
-  cognitiveServices: readEnvironmentVariable('EXISTING_DNS_ZONE_COGNITIVE', '') // privatelink.cognitiveservices.azure.com
-  apimGateway: readEnvironmentVariable('EXISTING_DNS_ZONE_APIM', '')           // privatelink.azure-api.net
-  aiServices: readEnvironmentVariable('EXISTING_DNS_ZONE_AI_SERVICES', '')     // privatelink.services.azure.com
+  openai: ''
+  keyVault: ''
+  monitor: ''
+  eventHub: ''
+  cosmosDb: ''
+  storageBlob: ''
+  storageFile: ''
+  storageTable: ''
+  storageQueue: ''
+  cognitiveServices: ''
+  apimGateway: ''
+  aiServices: ''
 }
 
 // Private Endpoint names
-param storageBlobPrivateEndpointName = readEnvironmentVariable('STORAGE_BLOB_PE_NAME', '')
-param storageFilePrivateEndpointName = readEnvironmentVariable('STORAGE_FILE_PE_NAME', '')
-param storageTablePrivateEndpointName = readEnvironmentVariable('STORAGE_TABLE_PE_NAME', '')
-param storageQueuePrivateEndpointName = readEnvironmentVariable('STORAGE_QUEUE_PE_NAME', '')
-param cosmosDbPrivateEndpointName = readEnvironmentVariable('COSMOS_DB_PE_NAME', '')
-param eventHubPrivateEndpointName = readEnvironmentVariable('EVENTHUB_PE_NAME', '')
-param languageServicePrivateEndpointName = readEnvironmentVariable('LANGUAGE_SERVICE_PE_NAME', '')
-param aiContentSafetyPrivateEndpointName = readEnvironmentVariable('AI_CONTENT_SAFETY_PE_NAME', '')
-param apimV2PrivateEndpointName = readEnvironmentVariable('APIM_V2_PE_NAME', '')
-param aiFoundryPrivateEndpointName = readEnvironmentVariable('AI_FOUNDRY_PE_NAME', '')
-param keyVaultPrivateEndpointName = readEnvironmentVariable('KEY_VAULT_PE_NAME', '')
+param storageBlobPrivateEndpointName = ''
+param storageFilePrivateEndpointName = ''
+param storageTablePrivateEndpointName = ''
+param storageQueuePrivateEndpointName = ''
+param cosmosDbPrivateEndpointName = ''
+param eventHubPrivateEndpointName = ''
+param languageServicePrivateEndpointName = ''
+param aiContentSafetyPrivateEndpointName = ''
+param apimV2PrivateEndpointName = ''
+param aiFoundryPrivateEndpointName = ''
+param keyVaultPrivateEndpointName = ''
 
-// Services network access configuration
-param apimNetworkType = readEnvironmentVariable('APIM_NETWORK_TYPE', 'External')
-param apimV2UsePrivateEndpoint = bool(readEnvironmentVariable('APIM_V2_USE_PRIVATE_ENDPOINT', 'true'))
-param apimV2PublicNetworkAccess = bool(readEnvironmentVariable('APIM_V2_PUBLIC_NETWORK_ACCESS', 'true'))
-param cosmosDbPublicAccess = readEnvironmentVariable('COSMOS_DB_PUBLIC_ACCESS', 'Disabled')
-param eventHubNetworkAccess = readEnvironmentVariable('EVENTHUB_NETWORK_ACCESS', 'Enabled')
-param languageServiceExternalNetworkAccess = readEnvironmentVariable('LANGUAGE_SERVICE_EXTERNAL_NETWORK_ACCESS', 'Disabled')
-param aiContentSafetyExternalNetworkAccess = readEnvironmentVariable('AI_CONTENT_SAFETY_EXTERNAL_NETWORK_ACCESS', 'Disabled')
-param aiFoundryExternalNetworkAccess = readEnvironmentVariable('AI_FOUNDRY_EXTERNAL_NETWORK_ACCESS', 'Disabled')
-param keyVaultExternalNetworkAccess = readEnvironmentVariable('KEY_VAULT_EXTERNAL_NETWORK_ACCESS', 'Disabled')
-param useAzureMonitorPrivateLinkScope = bool(readEnvironmentVariable('USE_AZURE_MONITOR_PRIVATE_LINK_SCOPE', 'false'))
+// Services network access configuration - Public for dev environment
+param apimNetworkType = 'External'
+param apimV2UsePrivateEndpoint = true
+param apimV2PublicNetworkAccess = true
+param cosmosDbPublicAccess = 'Enabled'
+param eventHubNetworkAccess = 'Enabled'
+param languageServiceExternalNetworkAccess = 'Enabled'
+param aiContentSafetyExternalNetworkAccess = 'Enabled'
+param aiFoundryExternalNetworkAccess = 'Enabled'
+param keyVaultExternalNetworkAccess = 'Enabled'
+param useAzureMonitorPrivateLinkScope = false
 
 // ============================================================================
 // FEATURE FLAGS - Deploy specific capabilities
 // ============================================================================
-param createAppInsightsDashboards = bool(readEnvironmentVariable('CREATE_DASHBOARDS', 'false'))
-param enableAIModelInference = bool(readEnvironmentVariable('ENABLE_AI_MODEL_INFERENCE', 'true'))
-param enableDocumentIntelligence = bool(readEnvironmentVariable('ENABLE_DOCUMENT_INTELLIGENCE', 'true'))
-param enableAzureAISearch = bool(readEnvironmentVariable('ENABLE_AZURE_AI_SEARCH', 'true'))
-param enableAIGatewayPiiRedaction = bool(readEnvironmentVariable('ENABLE_PII_REDACTION', 'true'))
-param enableOpenAIRealtime = bool(readEnvironmentVariable('ENABLE_OPENAI_REALTIME', 'true'))
-param enableAIFoundry = bool(readEnvironmentVariable('ENABLE_AI_FOUNDRY', 'true'))
-param entraAuth = bool(readEnvironmentVariable('AZURE_ENTRA_AUTH', 'false'))
-param enableAPICenter = bool(readEnvironmentVariable('ENABLE_API_CENTER', 'true'))
+param createAppInsightsDashboards = false
+param enableAIModelInference = true
+param enableDocumentIntelligence = true
+param enableAzureAISearch = true
+param enableAIGatewayPiiRedaction = true
+param enableOpenAIRealtime = true
+param enableAIFoundry = true
+param entraAuth = false
+param enableAPICenter = true
 
 // ============================================================================
 // COMPUTE SKU & SIZE - SKUs and capacity settings for services
 // ============================================================================
-param apimSku = readEnvironmentVariable('APIM_SKU', 'StandardV2')
-param apimSkuUnits = int(readEnvironmentVariable('APIM_SKU_UNITS', '1'))
-param eventHubCapacityUnits = int(readEnvironmentVariable('EVENTHUB_CAPACITY', '1'))
-param cosmosDbRUs = int(readEnvironmentVariable('COSMOS_DB_RUS', '400'))
-param logicAppsSkuCapacityUnits = int(readEnvironmentVariable('LOGIC_APPS_SKU_CAPACITY_UNITS', '1'))
-param languageServiceSkuName = readEnvironmentVariable('LANGUAGE_SERVICE_SKU_NAME', 'S')
-param aiContentSafetySkuName = readEnvironmentVariable('AI_CONTENT_SAFETY_SKU_NAME', 'S0')
-param apicSku = readEnvironmentVariable('APIC_SKU', 'Free')
-param keyVaultSkuName = readEnvironmentVariable('KEY_VAULT_SKU_NAME', 'standard')
+// Use Developer SKU for lower cost in dev
+param apimSku = 'Developer'
+param apimSkuUnits = 1
 
-// ============================================================================
-// ACCELERATOR SPECIFIC PARAMETERS
-// ============================================================================
-param logicContentShareName = readEnvironmentVariable('LOGIC_CONTENT_SHARE_NAME', 'usage-logic-content')
+// Minimal capacity for dev
+param cosmosDbRUs = 400
+param eventHubCapacityUnits = 1
+param logicAppsSkuCapacityUnits = 1
+param languageServiceSkuName = 'S'
+param aiContentSafetySkuName = 'S0'
+param apicSku = 'Free'
+param keyVaultSkuName = 'standard'
 
-// AI Search instances configuration - add more instances by adding to this array
-// Example: [{name: 'ai-search-01', url: 'https://search1.search.windows.net/', description: 'AI Search 1'}]
+// ==========================='usage-logic-content'
+
+// AI Search instances configuration
 param aiSearchInstances = []
 
 // AI Foundry instances configuration array
 param aiFoundryInstances = [
   {
-    name: readEnvironmentVariable('AI_FOUNDRY_RESOURCE_NAME', '')
-    location: readEnvironmentVariable('AZURE_LOCATION', 'eastus')
+    name: ''
+    location: 'swedencentral'
     customSubDomainName: ''
     defaultProjectName: 'citadel-governance-project'
   }
   {
-    name: readEnvironmentVariable('AI_FOUNDRY_RESOURCE_NAME', '')
+    name: ''
     location: 'eastus2'
     customSubDomainName: ''
     defaultProjectName: 'citadel-governance-project'
@@ -236,6 +240,14 @@ param aiFoundryModelsConfig = [
 // ============================================================================
 // ENTRA ID AUTHENTICATION
 // ============================================================================
-param entraTenantId = readEnvironmentVariable('AZURE_TENANT_ID', '')
-param entraClientId = readEnvironmentVariable('AZURE_CLIENT_ID', '')
-param entraAudience = readEnvironmentVariable('AZURE_AUDIENCE', '')
+param entraTenantId = ''
+param entraClientId = ''
+param entraAudience = ''
+
+// ============================================================================
+// GOOGLE CUSTOM SEARCH API
+// ============================================================================
+param enableGoogleSearchAPI = true
+// Retrieve secrets from Key Vault (secrets: google-search-engine-id, google-search-api-key)
+param googleSearchEngineId = az.getSecret('3a0eed45-6d6a-4200-a0f1-85e73312a1a8', 'rg-citadel-dev', 'kv-xot5i4klj5zea', 'google-search-engine-id')
+param googleSearchApiKey = az.getSecret('3a0eed45-6d6a-4200-a0f1-85e73312a1a8', 'rg-citadel-dev', 'kv-xot5i4klj5zea', 'google-search-api-key')

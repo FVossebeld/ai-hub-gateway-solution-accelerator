@@ -1,0 +1,101 @@
+<policies>
+    <inbound>
+        <base />
+        
+        <!-- Rate limiting: 200 calls per minute per subscription -->
+        <rate-limit-by-key 
+            calls="200" 
+            renewal-period="60" 
+            counter-key="@(context.Subscription.Id)" />
+        
+        <!-- Token quota: 1M tokens per day -->
+        <quota-by-key 
+            calls="1000000" 
+            renewal-period="86400" 
+            counter-key="@(context.Subscription.Id + '-tokens')" />
+        
+        <!-- Model allowlist: Full access to ALL available models -->
+        <set-variable name="allowedModels" value="@{
+            return new List<string> { 
+                &quot;gpt-5&quot;,
+                &quot;gpt-4o&quot;,
+                &quot;gpt-4o-mini&quot;,
+                &quot;deepseek-r1&quot;,
+                &quot;phi-4&quot;,
+                &quot;text-embedding-3-large&quot;
+            };
+        }" />
+        
+        <!-- Validate model is in allowlist -->
+        <choose>
+            <when condition="@{
+                var allowedModels = (List<string>)context.Variables[&quot;allowedModels&quot;];
+                var requestedModel = context.Request.MatchedParameters.ContainsKey(&quot;deployment-id&quot;) 
+                    ? context.Request.MatchedParameters[&quot;deployment-id&quot;] 
+                    : &quot;&quot;;
+                
+                // For chat completions, check model in body
+                if (context.Request.Body != null &amp;&amp; context.Request.Body.As<JObject>(preserveContent: true) != null)
+                {
+                    var body = context.Request.Body.As<JObject>(preserveContent: true);
+                    if (body[&quot;model&quot;] != null)
+                    {
+                        requestedModel = body[&quot;model&quot;].ToString().ToLowerInvariant();
+                    }
+                }
+                
+                // Normalize the requested model name to lowercase
+                requestedModel = requestedModel.ToLowerInvariant();
+                
+                return !string.IsNullOrEmpty(requestedModel) &amp;&amp; !allowedModels.Any(m => requestedModel.Contains(m.ToLowerInvariant()));
+            }">
+                <return-response>
+                    <set-status code="403" reason="Forbidden" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        return new JObject(
+                            new JProperty("error", new JObject(
+                                new JProperty("code", "ModelNotAllowed"),
+                                new JProperty("message", "Requested model is not in the allowlist. Allowed models: gpt-5, gpt-4o, gpt-4o-mini, deepseek-r1, phi-4, text-embedding-3-large")
+                            ))
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+        </choose>
+        
+        <!-- Custom header for tracking use case -->
+        <set-header name="X-UseCase" exists-action="override">
+            <value>Floris-AgentPlayground</value>
+        </set-header>
+        
+        <!-- Content safety enforcement -->
+        <llm-content-safety backend-id="content-safety-backend" shield-prompt="true">
+            <categories output-type="EightSeverityLevels">
+                <category name="Hate" threshold="4" />
+                <category name="Violence" threshold="4" />
+                <category name="Sexual" threshold="4" />
+                <category name="SelfHarm" threshold="4" />
+            </categories>
+        </llm-content-safety>
+    </inbound>
+    
+    <backend>
+        <base />
+    </backend>
+    
+    <outbound>
+        <base />
+    </outbound>
+    
+    <on-error>
+        <base />
+        <!-- Raising throttling events for monitoring -->
+        <set-variable name="productName" value="@(context.Product?.Name?.ToString() ?? &quot;Floris-AgentPlayground&quot;)" />
+        <set-variable name="deploymentName" value="@((string)context.Variables.GetValueOrDefault&lt;string&gt;(&quot;requestedModel&quot;, &quot;DefaultModel&quot;))" />
+        <set-variable name="appId" value="@((string)context.Variables.GetValueOrDefault&lt;string&gt;(&quot;appId&quot;, context.Subscription?.Id ?? &quot;Floris-Playground-Sub&quot;))" />
+        <include-fragment fragment-id="raise-throttling-events" />
+    </on-error>
+</policies>

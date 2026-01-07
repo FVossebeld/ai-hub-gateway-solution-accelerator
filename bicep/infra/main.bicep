@@ -282,6 +282,17 @@ param apimSku string = 'Developer'
 @description('API Management service SKU units.')
 param apimSkuUnits int = 1
 
+// Google Custom Search API Configuration
+@description('Enable Google Custom Search API integration')
+param enableGoogleSearchAPI bool = false
+
+@description('Google Custom Search Engine ID')
+param googleSearchEngineId string = ''
+
+@description('Google Custom Search API Key')
+@secure()
+param googleSearchApiKey string = ''
+
 @description('Event Hub capacity units.')
 param eventHubCapacityUnits int = 1
 
@@ -853,6 +864,10 @@ module apim './modules/apim/apim.bicep' = {
     isMCPSampleDeployed: true
     apiCenterServiceName: apiCenter.outputs.name
     apiCenterWorkspaceName: apiCenter.outputs.defaultWorkspaceName
+    // Google Custom Search API
+    enableGoogleSearchAPI: enableGoogleSearchAPI
+    googleSearchEngineId: googleSearchEngineId
+    googleSearchApiKey: googleSearchApiKey
 
   }
 }

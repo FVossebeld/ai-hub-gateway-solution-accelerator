@@ -1,0 +1,101 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Google Search API (Simple)",
+    "description": "Simplified Google Custom Search API with essential parameters only. Returns streamlined results.",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "https://customsearch.googleapis.com/customsearch/v1"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Search the web",
+        "description": "Performs a web search and returns simplified results",
+        "operationId": "search",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "Azure API Management"
+            }
+          },
+          {
+            "name": "num",
+            "in": "query",
+            "description": "Number of results (1-10, default: 5)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - missing search query"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SimpleSearchResponse": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The search query"
+          },
+          "totalResults": {
+            "type": "string",
+            "description": "Total number of results found"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SimpleResult"
+            }
+          }
+        }
+      },
+      "SimpleResult": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
