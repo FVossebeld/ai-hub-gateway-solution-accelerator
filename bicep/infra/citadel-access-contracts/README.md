@@ -173,17 +173,17 @@ API names must already exist in your APIM instance. The deployment will fail wit
 
 **Before deployment, verify all API names:**
 
-```powershell
+```bash
 # List all available APIs in your APIM instance
-az apim api list `
-  --resource-group YOUR-APIM-RG `
-  --service-name YOUR-APIM-NAME `
+az apim api list \
+  --resource-group YOUR-APIM-RG \
+  --service-name YOUR-APIM-NAME \
   --query "[].name" -o tsv
 
 # Verify a specific API exists
-az apim api show `
-  --resource-group YOUR-APIM-RG `
-  --service-name YOUR-APIM-NAME `
+az apim api show \
+  --resource-group YOUR-APIM-RG \
+  --service-name YOUR-APIM-NAME \
   --api-id azure-openai-api
 ```
 
@@ -837,19 +837,19 @@ Write-Host "##vso[task.setvariable variable=OAI_KEY;issecret=true]$($oaiCreds.ap
 **Always run these checks BEFORE deploying a contract:**
 
 1. **Verify APIM Instance Exists**:
-```powershell
-az apim show `
-  --resource-group YOUR-APIM-RG `
-  --service-name YOUR-APIM-NAME `
+```bash
+az apim show \
+  --resource-group YOUR-APIM-RG \
+  --service-name YOUR-APIM-NAME \
   --query "name" -o tsv
 ```
 
 2. **Verify ALL API Names Exist** (Critical - Most Common Failure):
-```powershell
+```bash
 # List all available APIs in your APIM
-az apim api list `
-  --resource-group YOUR-APIM-RG `
-  --service-name YOUR-APIM-NAME `
+az apim api list \
+  --resource-group YOUR-APIM-RG \
+  --service-name YOUR-APIM-NAME \
   --query "[].name" -o tsv
 
 # Example output:
@@ -865,17 +865,17 @@ az apim api list `
 ```
 
 3. **Verify Key Vault Exists** (if using Key Vault):
-```powershell
-az keyvault show `
-  --name YOUR-KV-NAME `
+```bash
+az keyvault show \
+  --name YOUR-KV-NAME \
   --query "name" -o tsv
 ```
 
 4. **Preview Deployment**:
-```powershell
-az deployment sub what-if `
-  --location eastus `
-  --template-file main.bicep `
+```bash
+az deployment sub what-if \
+  --location eastus \
+  --template-file main.bicep \
   --parameters usecase.bicepparam
 ```
 

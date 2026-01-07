@@ -29,7 +29,7 @@ az deployment sub create --name docpipeline --location eastus --template-file ..
 
 **CRITICAL**: Before deploying, verify that all API names in your `apiNameMapping` exist in your APIM instance:
 
-```powershell
+```bash
 # List all available APIs in APIM
 az apim api list --resource-group <rg> --service-name <apim> --query "[].name" -o tsv
 
@@ -76,7 +76,7 @@ param keyVault = { subscriptionId: '00000000-0000-0000-0000-000000000000', resou
 ## 🔍 Verification Commands
 
 ### Check APIs in APIM (Run this BEFORE deployment)
-```powershell
+```bash
 # List all available APIs
 az apim api list --resource-group <rg> --service-name <apim> --query "[].name" -o tsv
 
@@ -183,7 +183,7 @@ If you get: `ValidationError: One or more fields contain incorrect values: aid: 
 **To fix**:
 
 1. List all available APIs in your APIM:
-   ```powershell
+   ```bash
    az apim api list --resource-group <rg> --service-name <apim> --query "[].name" -o tsv
    ```
 
