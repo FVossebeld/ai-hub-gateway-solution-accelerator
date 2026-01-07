@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "apim": {
+      "value": {
+        "subscriptionId": "3a0eed45-6d6a-4200-a0f1-85e73312a1a8",
+        "resourceGroupName": "rg-citadel-dev",
+        "name": "apim-xot5i4klj5zea"
+      }
+    },
+    "keyVault": {
+      "value": {
+        "subscriptionId": "",
+        "resourceGroupName": "",
+        "name": ""
+      }
+    },
+    "useTargetAzureKeyVault": {
+      "value": false
+    },
+    "useCase": {
+      "value": {
+        "businessUnit": "Sandbox",
+        "useCaseName": "Learning",
+        "environment": "DEV"
+      }
+    },
+    "apiNameMapping": {
+      "value": {
+        "OAI": [
+          "azure-openai-api",
+          "universal-llm-api"
+        ],
+        "DOC": [
+          "document-intelligence-api"
+        ],
+        "SRCH": [
+          "azure-ai-search-index-api"
+        ]
+      }
+    },
+    "services": {
+      "value": [
+        {
+          "code": "OAI",
+          "endpointSecretName": "SANDBOX-OPENAI-ENDPOINT",
+          "apiKeySecretName": "SANDBOX-OPENAI-API-KEY",
+          "policyXml": "<policies>\n    <inbound>\n        <base />\n        \n        <!-- Extract and validate model parameter from request -->\n        <include-fragment fragment-id=\"set-llm-requested-model\" />\n        \n        <!-- \n        =====================================================================\n        NO MODEL RESTRICTIONS FOR SANDBOX LEARNING\n        =====================================================================\n        Unlike the default policy, this sandbox policy allows ALL models\n        to facilitate learning and experimentation with different AI models.\n        =====================================================================\n        -->\n        \n        <!-- Rate limiting: Higher limits for learning environment -->\n        <rate-limit-by-key \n            calls=\"500\" \n            renewal-period=\"60\" \n            counter-key=\"@(context.Subscription.Id)\" />\n        \n        <!-- Capacity management - Subscription Level: Higher token quota for learning -->\n        <llm-token-limit \n            counter-key=\"@(context.Subscription.Id)\" \n            tokens-per-minute=\"1000\" \n            estimate-prompt-tokens=\"false\" \n            tokens-consumed-header-name=\"consumed-tokens\" \n            remaining-tokens-header-name=\"remaining-tokens\" \n            token-quota=\"1000000\" \n            token-quota-period=\"Monthly\" \n            retry-after-header-name=\"retry-after\" />\n        \n        <!-- Content Safety: Relaxed for sandbox learning environment -->\n        <llm-content-safety backend-id=\"content-safety-backend\" shield-prompt=\"false\">\n            <!-- 0 is most restrictive and can be set up-to 7 -->\n            <!-- Sandbox uses threshold 7 (least restrictive) for maximum flexibility -->\n            <categories output-type=\"EightSeverityLevels\">\n                <category name=\"Hate\" threshold=\"7\" />\n                <category name=\"Violence\" threshold=\"7\" />\n            </categories>\n        </llm-content-safety>\n        \n        <!-- Custom header for tracking sandbox use case -->\n        <set-header name=\"X-UseCase\" exists-action=\"override\">\n            <value>Sandbox-Learning</value>\n        </set-header>\n    </inbound>\n    \n    <!-- Control if and how the requests are forwarded to services  -->\n    <backend>\n        <base />\n    </backend>\n    \n    <!-- Customize the responses -->\n    <outbound>\n        <base />\n    </outbound>\n    \n    <!-- Handle exceptions and customize error responses  -->\n    <on-error>\n        <base />\n        <!-- Raising throttling events (http 429 only) can help in setting up alerts in App Insights -->\n        <!-- Set the following variables to customize the throttling event details -->\n        <set-variable name=\"productName\" value=\"@(context.Product?.Name?.ToString() ?? \"Portal-Admin\")\" />\n        <set-variable name=\"deploymentName\" value=\"@((string)context.Variables.GetValueOrDefault<string>(\"requestedModel\", \"DefaultModel\"))\" />\n        <set-variable name=\"appId\" value=\"@((string)context.Variables.GetValueOrDefault<string>(\"appId\", context.Subscription?.Id ?? \"Portal-Admin-Sub\"))\" />\n        <include-fragment fragment-id=\"raise-throttling-events\" />\n    </on-error>\n</policies>\n"
+        },
+        {
+          "code": "DOC",
+          "endpointSecretName": "SANDBOX-DOCINTELL-ENDPOINT",
+          "apiKeySecretName": "SANDBOX-DOCINTELL-API-KEY",
+          "policyXml": ""
+        },
+        {
+          "code": "SRCH",
+          "endpointSecretName": "SANDBOX-SEARCH-ENDPOINT",
+          "apiKeySecretName": "SANDBOX-SEARCH-API-KEY",
+          "policyXml": ""
+        }
+      ]
+    },
+    "productTerms": {
+      "value": "# Sandbox Learning Environment - Terms of Use\n\n## Scope\nThis API subscription provides access to available AI models and services for learning and experimentation purposes.\n\n## Rate Limits\n- 500 calls per minute\n- Higher token quotas for experimentation (1M tokens per month)\n\n## Available Services\n- **Azure OpenAI API**: GPT-4o, GPT-4o-mini, GPT-3.5-turbo, text embeddings, and other deployed models\n- **Universal LLM API**: Multi-provider access including DeepSeek-R1 and other LLMs\n- **Document Intelligence API**: Document analysis and form recognition\n- **Azure AI Search Index API**: Vector and hybrid search capabilities\n\n## Allowed Models\n- **ALL MODELS** available in the hub (no restrictions)\n- GPT-4o, GPT-4o-mini, GPT-3.5-turbo, DeepSeek-R1, etc.\n- Text embeddings (all versions)\n- Any other models deployed in the hub\n\n## Usage Guidelines\n- For learning, development, and experimentation only\n- Not for production workloads\n- All requests are logged for monitoring and cost attribution\n- **Content safety policies are RELAXED** (threshold 7, prompt shields disabled) for maximum learning flexibility\n\n## Data Handling\n- Do not use with sensitive or production data\n- Treat as a non-production environment\n\n## Support\nContact: Platform Team\n"
+    }
+  }
+}

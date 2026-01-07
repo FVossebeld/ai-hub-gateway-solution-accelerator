@@ -50,16 +50,13 @@ param useCase = {
 param apiNameMapping = {
   OAI: ['azure-openai-api', 'universal-llm-api']
   DOC: ['document-intelligence-api']
-  SRCH: ['ai-search-api']
-  LANG: ['language-api']
-  SPCH: ['speech-api']
-  TRAN: ['translator-api']
+  SRCH: ['azure-ai-search-index-api']
 }
 
 // ============================================================================
 // SERVICE CONFIGURATION
 // ============================================================================
-// All services with custom policy allowing access to all models
+// All available services with custom policy allowing access to all models
 
 param services = [
   {
@@ -83,27 +80,6 @@ param services = [
     // Uses default platform policy for AI search
     policyXml: ''
   }
-  {
-    code: 'LANG'
-    endpointSecretName: 'SANDBOX-LANGUAGE-ENDPOINT'
-    apiKeySecretName: 'SANDBOX-LANGUAGE-API-KEY'
-    // Uses default platform policy for language services
-    policyXml: ''
-  }
-  {
-    code: 'SPCH'
-    endpointSecretName: 'SANDBOX-SPEECH-ENDPOINT'
-    apiKeySecretName: 'SANDBOX-SPEECH-API-KEY'
-    // Uses default platform policy for speech services
-    policyXml: ''
-  }
-  {
-    code: 'TRAN'
-    endpointSecretName: 'SANDBOX-TRANSLATOR-ENDPOINT'
-    apiKeySecretName: 'SANDBOX-TRANSLATOR-API-KEY'
-    // Uses default platform policy for translator services
-    policyXml: ''
-  }
 ]
 
 // ============================================================================
@@ -113,11 +89,17 @@ param productTerms = '''
 # Sandbox Learning Environment - Terms of Use
 
 ## Scope
-This API subscription provides access to all available AI models and services for learning and experimentation purposes.
+This API subscription provides access to available AI models and services for learning and experimentation purposes.
 
 ## Rate Limits
 - 500 calls per minute
 - Higher token quotas for experimentation (1M tokens per month)
+
+## Available Services
+- **Azure OpenAI API**: GPT-4o, GPT-4o-mini, GPT-3.5-turbo, text embeddings, and other deployed models
+- **Universal LLM API**: Multi-provider access including DeepSeek-R1 and other LLMs
+- **Document Intelligence API**: Document analysis and form recognition
+- **Azure AI Search Index API**: Vector and hybrid search capabilities
 
 ## Allowed Models
 - **ALL MODELS** available in the hub (no restrictions)
