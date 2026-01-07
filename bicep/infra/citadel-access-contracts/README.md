@@ -167,7 +167,36 @@ Map service codes to their API names in APIM:
 }
 ```
 
-**Note**: API names must already exist in your APIM instance. The deployment will fail if an API name is not found.
+**⚠️ IMPORTANT: API Names Must Exist in APIM**
+
+API names must already exist in your APIM instance. The deployment will fail with a "ValidationError: API not found" error if an API name is not found.
+
+**Before deployment, verify all API names:**
+
+```bash
+# List all available APIs in your APIM instance
+az apim api list \
+  --resource-group YOUR-APIM-RG \
+  --service-name YOUR-APIM-NAME \
+  --query "[].name" -o tsv
+
+# Verify a specific API exists
+az apim api show \
+  --resource-group YOUR-APIM-RG \
+  --service-name YOUR-APIM-NAME \
+  --api-id azure-openai-api
+```
+
+**Common API names in Citadel deployments:**
+- `azure-openai-api` - Azure OpenAI Service
+- `universal-llm-api` - Universal LLM API (supports multiple providers)
+- `document-intelligence-api` - Azure Document Intelligence
+- `ai-search-api` - Azure AI Search
+- `language-api` - Azure Language Service
+- `speech-api` - Azure Speech Service
+- `translator-api` - Azure Translator
+
+Note: API names are **case-sensitive** and must match exactly as shown in APIM.
 
 ---
 
@@ -795,13 +824,60 @@ Write-Host "##vso[task.setvariable variable=OAI_KEY;issecret=true]$($oaiCreds.ap
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
-| **API not found** | API name doesn't exist in APIM | Verify with `az apim api list -g <rg> -n <apim>` |
+| **ValidationError: API not found** (during deployment) | API names in `apiNameMapping` don't exist in APIM | **MOST COMMON ERROR**: List available APIs with `az apim api list -g <rg> -n <apim> --query "[].name" -o tsv` and update your `apiNameMapping` to use exact names (case-sensitive) |
 | **Authorization failed** | Missing permissions | Grant `API Management Service Contributor` |
 | **Secret not created** | Key Vault permissions | Grant `Key Vault Secrets Officer` |
 | **Product not visible** | Product not published | Check product state in APIM portal |
 | **401 on API calls** | Wrong subscription key | Verify key from Key Vault or deployment output |
 | **403 - Model Not Allowed** | Model blocked by policy | Check allowed models in policy XML |
 | **429 - Rate Limit** | Exceeded rate limit | Reduce request frequency or adjust policy |
+
+### Pre-Deployment Validation
+
+**Always run these checks BEFORE deploying a contract:**
+
+1. **Verify APIM Instance Exists**:
+```bash
+az apim show \
+  --resource-group YOUR-APIM-RG \
+  --service-name YOUR-APIM-NAME \
+  --query "name" -o tsv
+```
+
+2. **Verify ALL API Names Exist** (Critical - Most Common Failure):
+```bash
+# List all available APIs in your APIM
+az apim api list \
+  --resource-group YOUR-APIM-RG \
+  --service-name YOUR-APIM-NAME \
+  --query "[].name" -o tsv
+
+# Example output:
+# azure-openai-api
+# universal-llm-api
+# document-intelligence-api
+# ai-search-api
+# language-api
+# speech-api
+# translator-api
+
+# Copy these exact names to your apiNameMapping parameter
+```
+
+3. **Verify Key Vault Exists** (if using Key Vault):
+```bash
+az keyvault show \
+  --name YOUR-KV-NAME \
+  --query "name" -o tsv
+```
+
+4. **Preview Deployment**:
+```bash
+az deployment sub what-if \
+  --location eastus \
+  --template-file main.bicep \
+  --parameters usecase.bicepparam
+```
 
 ### Debugging Steps
 

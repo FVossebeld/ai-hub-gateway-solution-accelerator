@@ -251,7 +251,111 @@ Citadel deployed in a **dedicated spoke** with hub firewall in between:
    - Validate in development environment first
    - Use `az deployment sub what-if` to preview changes
    - Test rate limits and error responses
- 
+
+5. **API Validation Before Deployment**
+   - **CRITICAL**: Before onboarding a use case, verify that all API names in your `apiNameMapping` parameter exist in your APIM instance
+   - Run `az apim api list --resource-group <rg> --service-name <apim-name> --query "[].name" -o tsv` to view all available APIs
+   - API names are case-sensitive and must match exactly
+   - Deployment will fail with "API not found" error for any missing API names
+   - Common mistake: Using outdated or incorrect API names from documentation
+
+### Troubleshooting Use Case Onboarding
+
+#### Common Onboarding Errors
+
+| Error | Root Cause | Solution |
+|-------|------------|----------|
+| **ValidationError: API not found** | API names in `apiNameMapping` don't exist in APIM | 1. List available APIs: `az apim api list --resource-group <rg> --service-name <apim> --query "[].name" -o tsv`<br>2. Update `apiNameMapping` to use exact API names<br>3. Or deploy missing APIs to APIM first |
+| **Authorization failed** | Missing RBAC permissions | Grant `API Management Service Contributor` role on APIM resource group |
+| **Secret not created in Key Vault** | Missing Key Vault permissions | Grant `Key Vault Secrets Officer` role on Key Vault |
+| **Product not visible** | Product not published | Check product state in APIM portal: Products → [Your Product] → Settings |
+| **401 Unauthorized on API calls** | Wrong subscription key | Verify key from Key Vault or deployment output matches your request header |
+| **403 Forbidden - Model Not Allowed** | Model blocked by policy | Check allowed models in product policy XML |
+| **429 Rate Limit Exceeded** | Exceeded rate limit | Reduce request frequency or adjust policy rate limits |
+
+#### Pre-Deployment Checklist
+
+Before deploying a Citadel Access Contract, verify:
+
+1. **APIM Instance Exists**
+   ```bash
+   az apim show --name <apim-name> --resource-group <rg> --query "name" -o tsv
+   ```
+
+2. **All APIs Exist in APIM** (Most Common Failure Point)
+   ```bash
+   # List all available APIs
+   az apim api list --resource-group <rg> --service-name <apim-name> --query "[].name" -o tsv
+   
+   # Check specific API
+   az apim api show --resource-group <rg> --service-name <apim-name> --api-id <api-name>
+   ```
+
+3. **Key Vault Exists (if using Key Vault)**
+   ```bash
+   az keyvault show --name <kv-name> --query "name" -o tsv
+   ```
+
+4. **Required Permissions**
+   ```bash
+   # Check APIM permissions
+   az role assignment list --scope /subscriptions/<sub-id>/resourceGroups/<apim-rg> \
+     --query "[?principalName=='<your-identity>'].roleDefinitionName"
+   
+   # Check Key Vault permissions (if using)
+   az role assignment list --scope /subscriptions/<sub-id>/resourceGroups/<kv-rg>/providers/Microsoft.KeyVault/vaults/<kv-name> \
+     --query "[?principalName=='<your-identity>'].roleDefinitionName"
+   ```
+
+#### Debugging Failed Deployments
+
+1. **Check Deployment Error Details**
+   ```bash
+   az deployment sub show --name <deployment-name> --query "properties.error" -o json
+   ```
+
+2. **Validate Bicep Template**
+   ```bash
+   az deployment sub validate \
+     --location <region> \
+     --template-file main.bicep \
+     --parameters usecase.bicepparam
+   ```
+
+3. **Test API Connectivity**
+   ```bash
+   # Get credentials
+   ENDPOINT=$(az keyvault secret show --vault-name <kv> --name <endpoint-secret> --query value -o tsv)
+   API_KEY=$(az keyvault secret show --vault-name <kv> --name <key-secret> --query value -o tsv)
+   
+   # Test API call
+   curl -X POST "$ENDPOINT/chat/completions?api-version=2024-02-01" \
+     -H "api-key: $API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"model":"gpt-4o","messages":[{"role":"user","content":"test"}]}'
+   ```
+
+#### Quick Reference: API Name Verification
+
+Always verify API names before adding them to `apiNameMapping`:
+
+```bash
+# Show all APIs with details
+az apim api list --resource-group <rg> --service-name <apim> --output table
+
+# Show just API names (copy these exactly to your bicepparam)
+az apim api list --resource-group <rg> --service-name <apim> --query "[].name" -o tsv
+
+# Common API naming patterns in Citadel:
+# - azure-openai-api
+# - universal-llm-api  
+# - document-intelligence-api
+# - ai-search-api
+# - language-api
+# - speech-api
+# - translator-api
+```
+
 ### Monitoring Guidelines
  
 1. **Application Insights**
